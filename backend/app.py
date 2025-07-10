@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { FiUploadCloud, FiArrowRight, FiLoader, FiRefreshCw } from "react-icons/fi";
+import { FiUploadCloud, FiArrowRight, FiLoader, FiRefreshCw, FiAlertCircle } from "react-icons/fi";
 import Image from "next/image";
 
 // Animasi CSS
@@ -40,18 +40,32 @@ export default function HomeSection() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const handleReset = () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
     setResult(null);
+    setError(null);
     setIsLoading(false);
     if (galleryInputRef.current) galleryInputRef.current.value = "";
   };
 
   const processImageFile = async (file: File) => {
     if (file) {
+      // Validasi ukuran file (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setError("Ukuran file terlalu besar. Maksimal 10MB.");
+        return;
+      }
+
+      // Validasi tipe file
+      if (!file.type.startsWith('image/')) {
+        setError("File yang dipilih bukan gambar.");
+        return;
+      }
+
       handleReset();
       const previewUrl = URL.createObjectURL(file);
       setImagePreview(previewUrl);
@@ -60,24 +74,33 @@ export default function HomeSection() {
       // Kirim gambar ke backend Flask
       const formData = new FormData();
       formData.append('image', file);
+      
       try {
         const response = await fetch('http://localhost:5000/predict', {
           method: 'POST',
           body: formData,
         });
-        if (!response.ok) throw new Error('Gagal mendapatkan hasil prediksi');
+        
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+        
         const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
         setResult({
           classification: data.classification,
-          accuracy: data.accuracy,
+          accuracy: Math.round(data.accuracy * 10) / 10, // Round to 1 decimal place
           drynessLevel: data.drynessLevel,
         });
+        
       } catch (error) {
-        setResult({
-          classification: 'Error',
-          accuracy: 0,
-          drynessLevel: 0,
-        });
+        console.error('Prediction error:', error);
+        setError(error instanceof Error ? error.message : 'Gagal menganalisis gambar');
+        setResult(null);
       } finally {
         setIsLoading(false);
       }
@@ -100,6 +123,12 @@ export default function HomeSection() {
     }
   };
 
+  const getConfidenceColor = (accuracy: number) => {
+    if (accuracy >= 80) return "#15803d"; // Green
+    if (accuracy >= 60) return "#b45309"; // Orange
+    return "#b91c1c"; // Red
+  };
+
   return (
     <>
       <style>{animationStyles}</style>
@@ -113,7 +142,7 @@ export default function HomeSection() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))", alignItems: "center", gap: "3rem", width: "100%" }}>
             <div className="fade-in-up" style={{ opacity: 0, animationDelay: "0.2s" }}>
               <h1 style={{ fontSize: "3.8rem", fontWeight: 800, color: "#1a202c", lineHeight: 1.15, letterSpacing: "-2.5px" }}>
-                Analisis kekeringan Pisang dengan AI
+                Analisis Kekeringan Pisang dengan AI
               </h1>
               <p style={{ fontSize: "1.2rem", color: "#4a5568", margin: "1.5rem 0 2.5rem 0" }}>
                 Dapatkan data akurat tentang tingkat kekeringan pisang Anda secara instan menggunakan teknologi AI terdepan.
@@ -137,13 +166,37 @@ export default function HomeSection() {
                 Unggah Gambar
               </h3>
               <p style={{ color: "#666", marginBottom: "2rem", minHeight: "40px" }}>
-                Pilih gambar pisang dari galeri Anda.
+                Pilih gambar pisang dari galeri Anda (maksimal 10MB).
               </p>
               <div style={{ display: "flex", gap: "1rem" }}>
-                <button onClick={triggerGalleryInput} style={{ flex: 1, background: "#e9edf1", border: "1px solid #d1d9e2", color: "#374151", padding: "0.85rem", borderRadius: "12px", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.75rem", transition: "all 0.2s ease" }}>
-                  <FiUploadCloud size={20} /> Galeri
+                <button 
+                  onClick={triggerGalleryInput} 
+                  disabled={isLoading}
+                  style={{ 
+                    flex: 1, 
+                    background: isLoading ? "#f3f4f6" : "#e9edf1", 
+                    border: "1px solid #d1d9e2", 
+                    color: isLoading ? "#9ca3af" : "#374151", 
+                    padding: "0.85rem", 
+                    borderRadius: "12px", 
+                    fontWeight: 600, 
+                    cursor: isLoading ? "not-allowed" : "pointer", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    gap: "0.75rem", 
+                    transition: "all 0.2s ease" 
+                  }}
+                >
+                  <FiUploadCloud size={20} /> {isLoading ? "Menganalisis..." : "Galeri"}
                 </button>
               </div>
+              {error && (
+                <div style={{ marginTop: "1rem", padding: "0.75rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", color: "#b91c1c", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <FiAlertCircle size={16} />
+                  {error}
+                </div>
+              )}
             </div>
 
             <div style={{ ...cardStyle, minWidth: '350px' }}>
@@ -152,7 +205,7 @@ export default function HomeSection() {
                   Hasil Analisis
                 </h3>
                 {(imagePreview || isLoading) && (
-                  <button onClick={handleReset} title="Ulangi Analisis" style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%' }}>
+                  <button onClick={handleReset} title="Ulangi Analisis" style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.5rem', borderRadius: '50%', transition: 'color 0.2s' }}>
                     <FiRefreshCw size={20} />
                   </button>
                 )}
@@ -162,6 +215,11 @@ export default function HomeSection() {
                   <div style={{ textAlign: 'center', color: '#4a5568' }}>
                     <FiLoader size={32} className="spinner" style={{ margin: '0 auto 0.5rem auto' }} />
                     <p style={{ fontWeight: 500 }}>Menganalisis Gambar...</p>
+                    <p style={{ fontSize: '0.85rem', color: '#64748b' }}>Proses membutuhkan 10-30 detik</p>
+                    <div style={{ width: '100%', height: '4px', background: '#e2e8f0', borderRadius: '2px', marginTop: '0.5rem', overflow: 'hidden' }}>
+                      <div style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #fbbf24 100%)', borderRadius: '2px', animation: 'loading 2s ease-in-out infinite' }}></div>
+                    </div>
+                    <style>{`@keyframes loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }`}</style>
                   </div>
                 ) : imagePreview && result ? (
                   <div style={{ width: '100%', textAlign: 'left' }}>
@@ -173,8 +231,10 @@ export default function HomeSection() {
                           {result.classification}
                         </span>
                         <div style={{ borderTop: '1px solid #d1d9e2', marginTop: '1rem', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
-                          <p style={{ fontSize: '0.9rem', color: '#4a5568', fontWeight: 500 }}>Akurasi</p>
-                          <p style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>{result.accuracy}%</p>
+                          <p style={{ fontSize: '0.9rem', color: '#4a5568', fontWeight: 500 }}>Tingkat Keyakinan</p>
+                          <p style={{ fontSize: '0.9rem', color: getConfidenceColor(result.accuracy), fontWeight: 600 }}>
+                            {result.accuracy}%
+                          </p>
                         </div>
                       </div>
                     </div>
