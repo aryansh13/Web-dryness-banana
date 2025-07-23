@@ -2,6 +2,7 @@ import Navbar from "./components/Navbar";
 import HomeSection from "./components/HomeSection";
 import HistorySection from "./components/HistorySection";
 import AboutSection from "./components/AboutSection";
+import BananaFactsSection from "./components/BananaFactsSection";
 import Footer from "./components/Footer";
 
 export default function Page() {
@@ -11,6 +12,7 @@ export default function Page() {
       <HomeSection />
       <HistorySection />
       <AboutSection />
+      <BananaFactsSection />
       <Footer />
     </main>
   );

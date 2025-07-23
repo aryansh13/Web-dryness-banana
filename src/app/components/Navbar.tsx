@@ -97,7 +97,7 @@ export default function Navbar() {
   const [activeSection, setActiveSection] = useState("home");
 
   useEffect(() => {
-    const sections = ["home", "history", "about"];
+    const sections = ["home", "history", "about", "banana-facts"];
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -152,6 +152,14 @@ export default function Navbar() {
             aria-current={activeSection === 'about' ? 'true' : undefined}
           >
             About
+          </a>
+          <a
+            href="#banana-facts"
+            className="nav-link"
+            style={activeSection === 'banana-facts' ? activeLinkStyle : linkStyle}
+            aria-current={activeSection === 'banana-facts' ? 'true' : undefined}
+          >
+            BananaFacts
           </a>
         </div>
       </nav>

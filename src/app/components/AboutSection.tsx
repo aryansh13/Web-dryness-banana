@@ -40,7 +40,7 @@ export default function AboutSection() {
           
           {/* Gambar Ilustrasi */}
           <Image
-            src="/assets/images/about_illustration.svg" // Ganti dengan path ilustrasi Anda
+            src="/assets/images/banana.png" // Ganti dengan path ilustrasi Anda
             alt="Ilustrasi Teknologi AI"
             width={400}
             height={400}
